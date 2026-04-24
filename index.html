@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKY 4K M3U8 Player</title>
+    <!-- Include hls.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+        .sidebar {
+            width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .sidebar li {
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .sidebar li:hover {
+            background-color: #e0e0e0;
+        }
+        .sidebar li.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+        .player-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        video {
+            width: 100%;
+            max-width: 800px;
+            background-color: black;
+            border: 2px solid #333;
+        }
+        .current-stream {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>SKY 4K M3U8 Player</h1>
+
+    <div class="container">
+        <!-- Sidebar for the list of channels -->
+        <div class="sidebar">
+            <h2>Channels</h2>
+            <ul id="channel-list">
+                <!-- Channels will be populated here via JavaScript -->
+            </ul>
+        </div>
+
+        <!-- Main player area -->
+        <div class="player-container">
+            <video id="video" controls autoplay></video>
+            <div class="current-stream" id="current-stream-name">Select a channel to play</div>
+            <div id="error-message" style="color: red; margin-top: 10px; display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const channelListElement = document.getElementById('channel-list');
+        const currentStreamName = document.getElementById('current-stream-name');
+        const errorMessage = document.getElementById('error-message');
+        let hls = null;
+
+        // List of m3u8 files in the directory
+        const channels = [
+            "aec_sky4k20201017.m3u8",
+            "aod351_sky4k20201017.m3u8",
+            "aod352_sky4k20201017.m3u8",
+            "aod353_sky4k20201017.m3u8",
+            "aod354_sky4k20201017.m3u8",
+            "aod355_sky4k20201017.m3u8",
+            "arena_sky4k20201017.m3u8",
+            "ass1_sky4k20201017.m3u8",
+            "ass2_sky4k20201017.m3u8",
+            "ass3_sky4k20201017.m3u8",
+            "ass4_sky4k20201017.m3u8",
+            "ceria_sky4k20201017.m3u8",
+            "hualitai_sky4k20201017.m3u8",
+            "huanxitai_sky4k20201017.m3u8",
+            "oasis_sky4k20201017.m3u8",
+            "prima_sky4k20201017.m3u8",
+            "quanjia_sky4k20201017.m3u8",
+            "ria_sky4k20201017.m3u8",
+            "shuangxin_sky4k20201017.m3u8",
+            "warna_sky4k20201017.m3u8",
+            "xiaotaiyang_sky4k20201017.m3u8"
+        ];
+
+        function playStream(channelFile, listItem) {
+            errorMessage.style.display = 'none';
+
+            // Highlight the active item
+            document.querySelectorAll('.sidebar li').forEach(li => li.classList.remove('active'));
+            if(listItem) {
+                listItem.classList.add('active');
+            }
+
+            // Clean up name for display
+            const displayName = channelFile.replace('_sky4k20201017.m3u8', '').toUpperCase();
+            currentStreamName.textContent = `Playing: ${displayName} (${channelFile})`;
+
+            if (Hls.isSupported()) {
+                if (hls) {
+                    hls.destroy();
+                }
+                hls = new Hls();
+                hls.loadSource(channelFile);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => console.error("Error playing video:", e));
+                });
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.error("fatal network error encountered, try to recover");
+                                errorMessage.textContent = "Network error while loading the stream.";
+                                errorMessage.style.display = 'block';
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.error("fatal media error encountered, try to recover");
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                console.error("fatal error, cannot recover");
+                                errorMessage.textContent = "Fatal error. Cannot play this stream.";
+                                errorMessage.style.display = 'block';
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+            }
+            // For Safari
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = channelFile;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play().catch(e => console.error("Error playing video:", e));
+                });
+            } else {
+                errorMessage.textContent = "Your browser does not support HLS video playback.";
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        // Populate the channel list
+        channels.forEach((channel, index) => {
+            const li = document.createElement('li');
+            const displayName = channel.replace('_sky4k20201017.m3u8', '').toUpperCase();
+            li.textContent = displayName;
+            li.onclick = () => playStream(channel, li);
+            channelListElement.appendChild(li);
+
+            // Auto-play the first channel
+            if (index === 0) {
+                playStream(channel, li);
+            }
+        });
+
+    </script>
+</body>
+</html>
